@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 struct NoteView: View {
     let noteId: UUID
@@ -24,7 +25,18 @@ struct NoteView: View {
                 .padding(.horizontal, 10)
                 .padding(.bottom, 10)
         }
-        .background(Color(hex: note?.colorHex ?? "#FFF59D"))
+        .background {
+            ZStack {
+                Color(hex: note?.colorHex ?? "#FFF59D")
+                if let name = note?.backgroundImage, let image = store.image(named: name) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                    // Tint the photo with the note color so text keeps its usual contrast.
+                    Color(hex: note?.colorHex ?? "#FFF59D").opacity(0.45)
+                }
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -41,18 +53,44 @@ struct NoteView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 6) {
+        ViewThatFits(in: .horizontal) {
+            headerContent(colors: Note.defaultColors)
+            headerContent(colors: Array(Note.defaultColors.prefix(3)))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background(Color.black.opacity(0.05))
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    guard !isDragging else { return }
+                    isDragging = true
+                    if let event = NSApp.currentEvent {
+                        onDrag(event)
+                    }
+                    DispatchQueue.main.async {
+                        isDragging = false
+                    }
+                }
+        )
+    }
+
+    /// Header contents. `ViewThatFits` falls back to fewer color swatches on narrow notes,
+    /// e.g. when the extra background-image controls are shown.
+    private func headerContent(colors: [String]) -> some View {
+        HStack(spacing: 5) {
             Image(systemName: "line.3.horizontal")
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundColor(.black.opacity(0.35))
 
-            ForEach(Note.defaultColors, id: \.self) { hex in
+            ForEach(colors, id: \.self) { hex in
                 Button {
                     store.setColor(noteId, hex)
                 } label: {
                     Circle()
                         .fill(Color(hex: hex))
-                        .frame(width: 13, height: 13)
+                        .frame(width: 12, height: 12)
                         .overlay(
                             Circle().stroke(Color.black.opacity(0.25), lineWidth: 1)
                         )
@@ -84,6 +122,24 @@ struct NoteView: View {
             .help("Larger text")
 
             Button {
+                chooseBackgroundImage()
+            } label: {
+                Image(systemName: note?.backgroundImage == nil ? "photo" : "photo.fill")
+            }
+            .buttonStyle(.plain)
+            .help("Background image")
+
+            if note?.backgroundImage != nil {
+                Button {
+                    store.setBackgroundImage(noteId, nil)
+                } label: {
+                    Image(systemName: "minus.circle")
+                }
+                .buttonStyle(.plain)
+                .help("Remove background image")
+            }
+
+            Button {
                 if let n = note {
                     store.setAlwaysOnTop(noteId, !n.alwaysOnTop)
                 }
@@ -109,23 +165,6 @@ struct NoteView: View {
             .buttonStyle(.plain)
             .help("Delete note")
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(Color.black.opacity(0.05))
-        .contentShape(Rectangle())
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    guard !isDragging else { return }
-                    isDragging = true
-                    if let event = NSApp.currentEvent {
-                        onDrag(event)
-                    }
-                    DispatchQueue.main.async {
-                        isDragging = false
-                    }
-                }
-        )
     }
 
     private var textBinding: Binding<String> {
@@ -133,6 +172,21 @@ struct NoteView: View {
             get: { note?.text ?? "" },
             set: { store.updateText(noteId, $0) }
         )
+    }
+
+    /// Opens a file picker and copies the chosen image into the app's support directory.
+    private func chooseBackgroundImage() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.image]
+        panel.prompt = "Use Image"
+        panel.message = "Choose a background image for this note"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if let name = store.importImage(from: url) {
+            store.setBackgroundImage(noteId, name)
+        }
     }
 }
 

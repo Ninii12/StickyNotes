@@ -7,6 +7,8 @@ final class NoteStore: ObservableObject {
     @Published var notes: [Note] = []
 
     private let fileURL: URL
+    private let imagesDirectory: URL
+    private var imageCache: [String: NSImage] = [:]
     private var saveTimer: Timer?
 
     init() {
@@ -14,6 +16,8 @@ final class NoteStore: ObservableObject {
         let dir = support.appendingPathComponent("StickyNotes", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         fileURL = dir.appendingPathComponent("notes.json")
+        imagesDirectory = dir.appendingPathComponent("Images", isDirectory: true)
+        try? FileManager.default.createDirectory(at: imagesDirectory, withIntermediateDirectories: true)
     }
 
     func load() {
@@ -79,6 +83,48 @@ final class NoteStore: ObservableObject {
         scheduleSave()
     }
 
+    // MARK: - Background images
+
+    /// Loads a previously imported image, caching it so SwiftUI does not hit the disk on every redraw.
+    func image(named name: String) -> NSImage? {
+        if let cached = imageCache[name] { return cached }
+        let url = imagesDirectory.appendingPathComponent((name as NSString).lastPathComponent)
+        guard let image = NSImage(contentsOf: url) else { return nil }
+        imageCache[name] = image
+        return image
+    }
+
+    /// Copies the picked file into the app's support directory and returns its relative name.
+    /// Returns `nil` when the file is not a readable image or copying fails.
+    func importImage(from source: URL) -> String? {
+        guard NSImage(contentsOf: source) != nil else { return nil }
+        let ext = source.pathExtension.isEmpty ? "png" : source.pathExtension.lowercased()
+        let filename = "\(UUID().uuidString).\(ext)"
+        do {
+            try FileManager.default.copyItem(at: source, to: imagesDirectory.appendingPathComponent(filename))
+        } catch {
+            print("Failed to import image: \(error)")
+            return nil
+        }
+        return "Images/\(filename)"
+    }
+
+    func setBackgroundImage(_ id: UUID, _ name: String?) {
+        guard let idx = notes.firstIndex(where: { $0.id == id }) else { return }
+        let previous = notes[idx].backgroundImage
+        mutate(id) { $0.backgroundImage = name }
+        if let previous, previous != name {
+            removeImageFile(named: previous)
+        }
+        scheduleSave()
+    }
+
+    private func removeImageFile(named name: String) {
+        imageCache[name] = nil
+        let url = imagesDirectory.appendingPathComponent((name as NSString).lastPathComponent)
+        try? FileManager.default.removeItem(at: url)
+    }
+
     func updateFrame(_ id: UUID, x: Double, y: Double, width: Double, height: Double) {
         mutate(id) { note in
             note.x = x
@@ -90,6 +136,9 @@ final class NoteStore: ObservableObject {
     }
 
     func delete(_ id: UUID) {
+        if let note = notes.first(where: { $0.id == id }), let name = note.backgroundImage {
+            removeImageFile(named: name)
+        }
         notes = notes.filter { $0.id != id }
         saveNow()
     }

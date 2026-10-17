@@ -11,6 +11,9 @@ struct Note: Identifiable, Codable, Equatable {
     var colorHex: String
     var alwaysOnTop: Bool
     var fontSize: Double
+    /// Path of a background image relative to the StickyNotes support directory (e.g. "Images/<uuid>.png").
+    /// `nil` renders the plain note color. Optional so older notes.json files still decode.
+    var backgroundImage: String?
 
     static let defaultColors: [String] = [
         "#FFF59D", "#FFCC80", "#F48FB1", "#81D4FA", "#A5D6A7", "#CE93D8", "#B0BEC5"
@@ -28,7 +31,8 @@ struct Note: Identifiable, Codable, Equatable {
             height: 240,
             colorHex: defaultColors[index % defaultColors.count],
             alwaysOnTop: true,
-            fontSize: 14
+            fontSize: 14,
+            backgroundImage: nil
         )
     }
 }

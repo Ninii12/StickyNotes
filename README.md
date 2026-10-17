@@ -5,7 +5,8 @@ A native macOS sticky notes app built with Swift + SwiftUI/AppKit.
 ## Features
 - Create, edit, and delete sticky notes
 - Drag to move, resize from edges
-- Color swatches
+- Color swatches (also tint the background image)
+- Optional background image per note
 - Font size controls
 - Pin / always-on-top toggle
 - Auto-saves to `~/Library/Application Support/StickyNotes/notes.json`
@@ -33,6 +34,8 @@ open /Users/nancy/Projects/notes2/StickyNotes.app
 - `x` button — delete note
 - Drag the note's header (⠿ area) to move it
 - Color dots — change color
+- Photo icon — choose or replace the note's background image (copied into `~/Library/Application Support/StickyNotes/Images/`)
+- ⊖ button (only shown when an image is set) — remove the background image
 - Pin icon — toggle always-on-top
 - Text size icons — larger/smaller text
 - Menu: File → Show All Notes (re-opens any note whose window was closed)

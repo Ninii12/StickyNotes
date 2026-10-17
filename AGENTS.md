@@ -12,6 +12,7 @@ open StickyNotes.app
 
 - Always rebuild **and** re-copy the binary into `StickyNotes.app` before testing; the bundle does not update itself.
 - User data lives at `~/Library/Application Support/StickyNotes/notes.json` (JSON array of notes). Deleting it resets to a fresh note on next launch.
+- Background images are copied into `~/Library/Application Support/StickyNotes/Images/`; `Note.backgroundImage` stores the path relative to the support directory (e.g. `Images/<uuid>.png`), and the file is deleted when the image is replaced, removed, or the note is closed.
 - Diagnostics: `open StickyNotes.app --stdout /tmp/diag.txt --args --dump-windows` prints all windows (class, frame, level, key status) and exits after 2s.
 - Screen capture and System Events/accessibility (osascript) are NOT permitted on this machine. Verify visually via window metadata instead:
   - List on-screen windows with `CGWindowListCopyWindowInfo` in a small `swift` script; expect one `StickyPanel` window per note at level 3 (`floating`).
