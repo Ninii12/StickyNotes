@@ -10,15 +10,23 @@ struct NoteView: View {
     let onClose: () -> Void
 
     @State private var isDragging = false
+    @State private var showStylePopover = false
     @FocusState private var textFocused: Bool
 
     private var note: Note? { store.notes.first(where: { $0.id == noteId }) }
+
+    private var editorFont: Font {
+        let size = CGFloat(note?.fontSize ?? 14)
+        let name = note?.resolvedFontName ?? Note.systemFontName
+        return name == Note.systemFontName ? .system(size: size) : .custom(name, size: size)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             TextEditor(text: textBinding)
-                .font(.system(size: note?.fontSize ?? 14))
+                .font(editorFont)
+                .foregroundColor(Color(hex: note?.resolvedTextColor ?? Note.defaultTextColors[0]))
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
                 .focused($textFocused)
@@ -27,13 +35,12 @@ struct NoteView: View {
         }
         .background {
             ZStack {
-                Color(hex: note?.colorHex ?? "#FFF59D")
                 if let name = note?.backgroundImage, let image = store.image(named: name) {
                     Image(nsImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                    // Tint the photo with the note color so text keeps its usual contrast.
-                    Color(hex: note?.colorHex ?? "#FFF59D").opacity(0.45)
+                } else {
+                    Color(hex: note?.colorHex ?? Note.defaultColors[0])
                 }
             }
         }
@@ -56,6 +63,7 @@ struct NoteView: View {
         ViewThatFits(in: .horizontal) {
             headerContent(colors: Note.defaultColors)
             headerContent(colors: Array(Note.defaultColors.prefix(3)))
+            headerContent(colors: Array(Note.defaultColors.prefix(2)))
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 8)
@@ -100,6 +108,17 @@ struct NoteView: View {
             }
 
             Spacer()
+
+            Button {
+                showStylePopover = true
+            } label: {
+                Image(systemName: "textformat")
+            }
+            .buttonStyle(.plain)
+            .help("Font & text color")
+            .popover(isPresented: $showStylePopover, arrowEdge: .bottom) {
+                stylePopover
+            }
 
             Button {
                 if let n = note {
@@ -174,6 +193,78 @@ struct NoteView: View {
         )
     }
 
+    /// Font family list plus text color swatches. The header is already packed, so
+    /// these live in a popover behind the "Aa" button.
+    private var stylePopover: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Font")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(Note.fontChoices, id: \.self) { name in
+                        Button {
+                            store.setFontName(noteId, name)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(fontDisplayName(name))
+                                    .font(name == Note.systemFontName ? .system(size: 13) : .custom(name, size: 13))
+                                Spacer()
+                                if note?.resolvedFontName == name {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                            }
+                            .padding(.vertical, 3)
+                            .padding(.horizontal, 6)
+                            .contentShape(Rectangle())
+                            .background(
+                                RoundedRectangle(cornerRadius: 5)
+                                    .fill(Color.primary.opacity(note?.resolvedFontName == name ? 0.1 : 0))
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .frame(height: 190)
+
+            Divider()
+
+            Text("Text Color")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+
+            HStack(spacing: 6) {
+                ForEach(Note.defaultTextColors, id: \.self) { hex in
+                    Button {
+                        store.setTextColor(noteId, hex)
+                    } label: {
+                        Circle()
+                            .fill(Color(hex: hex))
+                            .frame(width: 16, height: 16)
+                            .overlay(
+                                Circle().stroke(
+                                    (note?.resolvedTextColor ?? Note.defaultTextColors[0]) == hex
+                                        ? Color.accentColor : Color.black.opacity(0.25),
+                                    lineWidth: (note?.resolvedTextColor ?? Note.defaultTextColors[0]) == hex ? 2 : 1
+                                )
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .help("Text color")
+                }
+            }
+        }
+        .padding(12)
+        .frame(width: 210)
+    }
+
+    private func fontDisplayName(_ name: String) -> String {
+        name == Note.systemFontName ? "System" : name
+    }
+
     /// Opens a file picker and copies the chosen image into the app's support directory.
     private func chooseBackgroundImage() {
         let panel = NSOpenPanel()
@@ -200,7 +291,7 @@ extension Color {
         case 6:
             (r, g, b) = (int >> 16, int >> 8 & 0xFF, int & 0xFF)
         default:
-            (r, g, b) = (255, 245, 157)
+            (r, g, b) = (255, 249, 196)
         }
         self.init(
             .sRGB,

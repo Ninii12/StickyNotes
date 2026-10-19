@@ -1,3 +1,4 @@
 .build/
 StickyNotes.app/
+dist/
 .DS_Store

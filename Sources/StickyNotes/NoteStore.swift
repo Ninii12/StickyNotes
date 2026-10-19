@@ -25,7 +25,15 @@ final class NoteStore: ObservableObject {
         do {
             let data = try Data(contentsOf: fileURL)
             let decoded = try JSONDecoder().decode([Note].self, from: data)
-            notes = decoded
+            // Migrate notes saved with the old saturated palette to pastel equivalents.
+            notes = decoded.map { note in
+                var note = note
+                note.colorHex = Note.pastelColor(for: note.colorHex)
+                return note
+            }
+            if notes.map(\.colorHex) != decoded.map(\.colorHex) {
+                saveNow()
+            }
         } catch {
             print("Failed to load notes: \(error)")
         }
@@ -80,6 +88,16 @@ final class NoteStore: ObservableObject {
 
     func setFontSize(_ id: UUID, _ size: Double) {
         mutate(id) { $0.fontSize = size }
+        scheduleSave()
+    }
+
+    func setFontName(_ id: UUID, _ name: String) {
+        mutate(id) { $0.fontName = name }
+        scheduleSave()
+    }
+
+    func setTextColor(_ id: UUID, _ hex: String) {
+        mutate(id) { $0.textColorHex = hex }
         scheduleSave()
     }
 
