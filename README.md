@@ -10,6 +10,7 @@ A native macOS sticky notes app built with Swift + SwiftUI/AppKit.
 - Optional background image per note
 - Font size controls
 - Pin / always-on-top toggle
+- Closing a note crumples it into a ball that is tossed into the Trash on the Dock
 - Auto-saves to `~/Library/Application Support/StickyNotes/notes.json`
 - Restores all notes on launch
 
@@ -54,7 +55,7 @@ paid Apple Developer Program; no App Store submission or review involved).
 ## Controls
 - `Cmd+N` — new note
 - `+` button in a note — new note
-- `x` button — delete note
+- `x` button — delete note (it crumples into a ball and is tossed into the Trash)
 - Drag the note's header (⠿ area) to move it
 - Color dots — change color
 - Photo icon — choose or replace the note's background image (copied into `~/Library/Application Support/StickyNotes/Images/`)
@@ -63,5 +64,3 @@ paid Apple Developer Program; no App Store submission or review involved).
 - Text size icons — larger/smaller text
 - **Aa** icon — pick a font family and a text color
 - Menu: File → Show All Notes (re-opens any note whose window was closed)
-EOF
-cd /Users/nancy/Projects/notes2 && ls

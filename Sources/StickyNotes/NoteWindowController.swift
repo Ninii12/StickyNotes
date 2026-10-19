@@ -7,6 +7,13 @@ import Combine
 final class StickyPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    /// Borderless panels have no close button, so `performClose:` (the Close Note
+    /// menu item / Cmd+W) does nothing by default; route it through `close()`
+    /// like the x button so it gets the delete + crumple animation too.
+    override func performClose(_ sender: Any?) {
+        close()
+    }
 }
 
 @MainActor
@@ -77,7 +84,51 @@ final class NoteWindowController: NSWindowController, NSWindowDelegate {
             app.controllers.removeValue(forKey: noteId)
             return
         }
+        // Crumple-and-trash animation, played from a snapshot taken while the
+        // window content is still alive.
+        if let window, let snapshot = Self.snapshot(of: window) {
+            NoteCloseAnimation.play(snapshot: snapshot, frame: window.frame, screen: window.screen)
+        }
         store.delete(noteId)
         (NSApp.delegate as? AppDelegate)?.controllers.removeValue(forKey: noteId)
+    }
+
+    /// Renders the live window content into an image. Drawing our own view
+    /// hierarchy needs no screen-recording permission.
+    private static func snapshot(of window: NSWindow) -> NSImage? {
+        guard let view = window.contentView, view.bounds.width > 1, view.bounds.height > 1 else { return nil }
+        let size = view.bounds.size
+        let scale = window.backingScaleFactor
+        let pixelWidth = Int(size.width * scale)
+        let pixelHeight = Int(size.height * scale)
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let ctx = CGContext(
+                data: nil,
+                width: pixelWidth,
+                height: pixelHeight,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: space,
+                bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
+              )
+        else { return nil }
+
+        // layer.render(in:) draws with an AppKit origin (bottom-left) while a
+        // bitmap's first row is the top, so flip vertically to compensate.
+        ctx.scaleBy(x: scale, y: scale)
+        ctx.translateBy(x: 0, y: size.height)
+        ctx.scaleBy(x: 1, y: -1)
+        if let layer = view.layer {
+            layer.render(in: ctx)
+        } else {
+            guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
+            view.cacheDisplay(in: view.bounds, to: rep)
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+            view.draw(view.bounds)
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        guard let cgImage = ctx.makeImage() else { return nil }
+        return NSImage(cgImage: cgImage, size: size)
     }
 }
