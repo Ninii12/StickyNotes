@@ -27,7 +27,7 @@ open StickyNotes.app
 ## Run
 
 ```sh
-open /Users/nancy/Projects/notes2/StickyNotes.app
+open StickyNotes.app
 ```
 
 ## Share without the App Store
